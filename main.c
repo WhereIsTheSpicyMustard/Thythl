@@ -2,5 +2,8 @@
 
 int main(int argc, char* argv[])
 {
+
+    printf("%zu\n", sizeof (int));
+
     return 0;
 }

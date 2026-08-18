@@ -1,10 +1,12 @@
 #ifndef THYTHL_H
 #define THYTHL_H
 
-#include <stdint.h>
 #include <stddef.h>
 
+typedef unsigned int uint;
+
 typedef enum Type {
+    BOOL,
     INT,
     FLOAT,
     STRING,
@@ -12,12 +14,10 @@ typedef enum Type {
     FUNC,
 } Type;
 
-typedef enum Inst {
-
-} Inst;
-
-typedef struct Instruction {
-
+typedef enum Instruction {
+    GOTO,
+    GOIF,
+    END,
 } Instruction;
 
 typedef struct Var {
@@ -25,8 +25,12 @@ typedef struct Var {
     Type type;
 } Var;
 
+typedef struct Bool {
+    char data;
+} Bool;
+
 typedef struct Int {
-    uint64_t data;
+    long long data;
 } Int;
 
 typedef struct Float {
@@ -48,6 +52,9 @@ typedef struct Func {
     size_t length;
 } Func;
 
-
+int program_start(void);
+int program_resize(void);
+int program_run(void);
+void program_end(void);
 
 #endif
