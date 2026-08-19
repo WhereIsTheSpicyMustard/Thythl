@@ -6,6 +6,7 @@
 typedef unsigned int uint;
 
 typedef enum Type {
+    NONE = 0,
     BOOL,
     INT,
     FLOAT,
@@ -15,45 +16,19 @@ typedef enum Type {
 } Type;
 
 typedef enum Instruction {
-    GOTO,
-    GOIF,
+    GOTO, // jump
+    GOIF, // if
+
     END,
 } Instruction;
 
 typedef struct Var {
-    void* data;
+    int* data;
+    size_t length; // in bytes
     Type type;
 } Var;
 
-typedef struct Bool {
-    char data;
-} Bool;
-
-typedef struct Int {
-    long long data;
-} Int;
-
-typedef struct Float {
-    double data;
-} Float;
-
-typedef struct String {
-    char* data;
-    size_t length;
-} String;
-
-typedef struct List {
-    Var* data;
-    size_t length;
-} List;
-
-typedef struct Func {
-    Instruction* data;
-    size_t length;
-} Func;
-
 int program_start(void);
-int program_resize(void);
 int program_run(void);
 void program_end(void);
 
