@@ -24,6 +24,12 @@ static int var_get(const int index)
         REPORT_ERROR("Array out of bounds");
         return 0;
     }
+
+    if (var_pool[index].data == NULL) {
+        REPORT_ERROR("Uninitialized memory read");
+        return 0;
+    }
+
     return *(var_pool[index].data);
 }
 
@@ -33,6 +39,12 @@ static int var_get_at(const int var_index, size_t data_index)
         REPORT_ERROR("Array out of bounds");
         return 0;
     }
+
+    if (var_pool[var_index].data == NULL) {
+        REPORT_ERROR("Uninitialized memory read");
+        return 0;
+    }
+
     if (data_index >= var_pool[var_index].length) {
         REPORT_ERROR("Array out of bounds");
         return 0;
@@ -72,16 +84,16 @@ static int var_set(const int index, const int value)
 
 // returns the index in vars, negative on error
 // maybe replace with hashmap instead of linear search
-static int var_alloc(const int index, const size_t Size) // size is number of ints
+static int var_alloc(const int index, const size_t size) // size is number of ints
 {
     if (index >= MAX_VARS) {
         REPORT_ERROR("Array out of bounds");
         return 0;
     }
     if (var_pool[index].data != NULL) return 1;
-    var_pool[index].data = malloc(Size * sizeof(int));
+    var_pool[index].data = calloc(size, sizeof(int));
     if (var_pool[index].data == NULL) return 1;
-    var_pool[index].length = Size;
+    var_pool[index].length = size;
     return 0;
 }
 
@@ -116,23 +128,33 @@ static int program_execute(int* prog, size_t size)
                 REPORT_ERROR("Error alocating var");
                 return 1;
             }
+            JUMP(i + 3);
+        continue;
+        case DAL: // index
+            var_free(prog[i + 1]);
+            JUMP(i + 2);
         continue;
         case EXE: // index
             if (program_execute(
                 var_get_data(prog[i + 1]),
                 var_get_length(prog[i + 1]))
             ) return 1;
+            JUMP(i + 2);
         continue;
         case PRI: // index
-            printf("> %d\n", var_get(prog[i + 1]));
+            printf("    PRINT I > %d\n", var_get(prog[i + 1]));
+            JUMP(i + 2);
         continue;
         case PRC: // index
-            printf("> %c\n", (char)var_get(prog[i + 1]));
+            printf("    PRINT C > %c\n", (char)var_get(prog[i + 1]));
+            JUMP(i + 2);
         continue;
         case PRS: // index
+            printf("    PRINT S > ");
             for (size_t j = 0; j < var_get_length(prog[i + 1]); ++j)
-                printf("> %c", (char)var_get_at(prog[i + 1], j));
+                printf("%c", (char)var_get_at(prog[i + 1], j));
             printf("\n");
+            JUMP(i + 2);
         continue;
         case JMP: // goto [i + 1]
             JUMP(prog[i + 1]);
@@ -143,6 +165,10 @@ static int program_execute(int* prog, size_t size)
             } else {
                 JUMP(i + 3);
             }
+        continue;
+        case SET:
+            var_set(prog[i + 1], prog[i + 2]);
+            JUMP(i + 3);
         continue;
         case MOV:
             var_set(prog[i + 1], var_get(prog[i + 2]));
@@ -243,7 +269,9 @@ static int program_execute(int* prog, size_t size)
         continue;
 
         case END: printf("PROGRAM > END\n");           return 0;
-        default:  REPORT_ERROR("Invalid instruction"); return 1;
+        default:
+            REPORT_ERRORI("Invalid instruction on line: ", i);
+            return 1;
         }
     }
 
@@ -251,11 +279,13 @@ static int program_execute(int* prog, size_t size)
     return 1;
 }
 
-int program_start(void)
+int program_start(int* prog, const size_t size)
 {
-    program = malloc(PROG_START_LENGTH * (sizeof *program));
+    program = malloc(size * (sizeof *program));
     if (program == NULL) return 1;
-    program_length = PROG_START_LENGTH;
+    program_length = size;
+
+    memcpy(program, prog, size * (sizeof *program));
 
     var_pool = calloc(MAX_VARS, (sizeof(*var_pool)));
     if (var_pool == NULL) {

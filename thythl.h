@@ -3,8 +3,12 @@
 
 #include <stddef.h>
 
+// potential additions that avoid hash collisions:
+// DAL, UAL, UNA, DST, CLS, RET
+
 typedef enum Instruction {
     ALO,  // allocate
+    DAL,  // de-allocate
     EXE,  // execute
     PRI,  // print as int
     PRC,  // print as char
@@ -33,6 +37,7 @@ typedef enum Instruction {
     LSH,  // <<
     RSH,  // >>
     END,
+    SET,
 } Instruction;
 
 typedef struct Var {
@@ -40,7 +45,7 @@ typedef struct Var {
     size_t length; // in bytes
 } Var;
 
-int program_start(void);
+int program_start(int* prog, const size_t size);
 int program_run(void);
 void program_end(void);
 
