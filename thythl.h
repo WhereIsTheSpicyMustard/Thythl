@@ -7,18 +7,43 @@ typedef unsigned int uint;
 
 typedef enum Type {
     NONE = 0,
-    BOOL,
     INT,
-    FLOAT,
     STRING,
-    LIST,
     FUNC,
 } Type;
 
 typedef enum Instruction {
-    GOTO, // jump
-    GOIF, // if
-
+    JMP,  // goto
+    JIF,  // JMP if x != 0
+    JNO,  // JMP if x == 0
+    JEQ,  // JMP if ==
+    JNE,  // JMP if !=
+    JGT,  // JMP if >
+    JLT,  // JMP if <
+    JGE,  // JMP if >=
+    JLE,  // JMP if <=
+    JAN,  // JMP if &&
+    JOR,  // JMP if ||
+    SET,  // =
+    ADD,  // +
+    SUB,  // -
+    MUL,  // *
+    DIV,  // /
+    MOD,  // %
+    CMP,  // ==
+    MOR,  // >
+    LES,  // <
+    GTE,  // >=
+    LTE,  // <=
+    AND,  // &&
+    ORR,  // ||
+    NOT,  // !
+    BAN,  // &
+    BOR,  // |
+    BXO,  // ^
+    BNO,  // ~
+    LSH,  // <<
+    RSH,  // >>
     END,
 } Instruction;
 
