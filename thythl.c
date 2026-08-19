@@ -96,53 +96,6 @@ static void var_free(const int index)
     var_pool[index].length = 0;
 }
 
-static void test(void)
-{
-
-    for (int i = 0; i < PROG_START_LENGTH; ++i)
-        program[i] = END;
-
-    int var1 = 0;
-    int var2 = 1;
-    int var3 = 2;
-
-    if (var_alloc(var1, 1)) {
-        REPORT_ERROR("Failed to allocate var");
-        return;
-    }
-    if (var_alloc(var2, 1)) {
-        REPORT_ERROR("Failed to allocate var");
-        return;
-    }
-    if (var_alloc(var3, 1)) {
-        REPORT_ERROR("Failed to allocate var");
-        return;
-    }
-
-
-    if (var_set(var1, 2)) {
-        REPORT_ERROR("Failed to allocate var");
-        return;
-    }
-    if (var_set(var2, -1)) {
-        REPORT_ERROR("Failed to allocate var");
-        return;
-    }
-
-    // TEST
-    program[0] = JIF;
-    program[1] = var1; // points to a variable
-    program[2] = 10;
-    program[3] = ADD;
-    program[4] = var1; // dest
-    program[5] = var1;
-    program[6] = var2;
-    program[7] = JMP;
-    program[8] = 0;
-
-    program[10] = END;
-}
-
 static int program_resize(void)
 {
     program_length = (program_length * 2) + 1; // ensures the size cannot be 0
@@ -358,8 +311,6 @@ int program_start(void)
         program_end();
         return 1;
     }
-
-    test();
 
     return 0;
 }
