@@ -3,28 +3,28 @@
 
 #include <stddef.h>
 
-typedef unsigned int uint;
-
-typedef enum Type {
-    NONE = 0,
-    INT,
-    STRING,
-    FUNC,
-} Type;
-
 typedef enum Instruction {
+    ALO,  // allocate
+    EXE,  // execute
+    PRI,  // print as int
+    PRC,  // print as char
+    PRS,  // print as string
     JMP,  // goto
     JIF,  // JMP if x != 0
     JNO,  // JMP if x == 0
     JEQ,  // JMP if ==
     JNE,  // JMP if !=
+
+    /*********** Remove? ***********/
     JGT,  // JMP if >
     JLT,  // JMP if <
     JGE,  // JMP if >=
     JLE,  // JMP if <=
     JAN,  // JMP if &&
     JOR,  // JMP if ||
-    SET,  // =
+    /*********** Remove? ***********/
+
+    MOV,  // =
     ADD,  // +
     SUB,  // -
     MUL,  // *
@@ -50,7 +50,6 @@ typedef enum Instruction {
 typedef struct Var {
     int* data;
     size_t length; // in bytes
-    Type type;
 } Var;
 
 int program_start(void);

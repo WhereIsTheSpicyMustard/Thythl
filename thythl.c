@@ -27,19 +27,52 @@ static int var_get(const int index)
     return *(var_pool[index].data);
 }
 
-static int program_resize(void)
+static int var_get_at(const int var_index, size_t data_index)
 {
-    program_length = (program_length * 2) + 1; // ensures the size cannot be 0
-    int* new_program = realloc(program, program_length);
-    if (new_program == NULL) return 1;
-    program = new_program;
+    if (var_index >= MAX_VARS) {
+        REPORT_ERROR("Array out of bounds");
+        return 0;
+    }
+    if (data_index >= var_pool[var_index].length) {
+        REPORT_ERROR("Array out of bounds");
+        return 0;
+    }
+    return var_pool[var_index].data[data_index];
+}
 
+static int* var_get_data(const int index)
+{
+    if (index >= MAX_VARS) {
+        REPORT_ERROR("Array out of bounds");
+        return NULL;
+    }
+    return var_pool[index].data;
+}
+
+static size_t var_get_length(const int index)
+{
+    if (index >= MAX_VARS) {
+        REPORT_ERROR("Array out of bounds");
+        return 0;
+    }
+    return var_pool[index].length;
+}
+
+static int var_set(const int index, const int value)
+{
+    if (index >= MAX_VARS) {
+        REPORT_ERROR("Array out of bounds");
+        return 0;
+    }
+    if (var_pool[index].data == NULL) return 1;
+    // printf("Edit var[%d]: %d -> %d\n", index, *(var_pool[index].data), value);
+    *(var_pool[index].data) = value;
     return 0;
 }
 
 // returns the index in vars, negative on error
 // maybe replace with hashmap instead of linear search
-static int var_alloc(const int index, const Type t, const size_t Size) // size is number of ints
+static int var_alloc(const int index, const size_t Size) // size is number of ints
 {
     if (index >= MAX_VARS) {
         REPORT_ERROR("Array out of bounds");
@@ -49,7 +82,6 @@ static int var_alloc(const int index, const Type t, const size_t Size) // size i
     var_pool[index].data = malloc(Size * sizeof(int));
     if (var_pool[index].data == NULL) return 1;
     var_pool[index].length = Size;
-    var_pool[index].type = t;
     return 0;
 }
 
@@ -62,19 +94,6 @@ static void var_free(const int index)
     free(var_pool[index].data);
     var_pool[index].data = NULL;
     var_pool[index].length = 0;
-    var_pool[index].type = NONE;
-}
-
-static int var_set(const int index, const int value)
-{
-    if (index >= MAX_VARS) {
-        REPORT_ERROR("Array out of bounds");
-        return 0;
-    }
-    if (var_pool[index].data == NULL) return 1;
-    printf("Edit var[%d]: %d -> %d\n", index, *(var_pool[index].data), value);
-    *(var_pool[index].data) = value;
-    return 0;
 }
 
 static void test(void)
@@ -87,15 +106,15 @@ static void test(void)
     int var2 = 1;
     int var3 = 2;
 
-    if (var_alloc(var1, INT, 1)) {
+    if (var_alloc(var1, 1)) {
         REPORT_ERROR("Failed to allocate var");
         return;
     }
-    if (var_alloc(var2, INT, 1)) {
+    if (var_alloc(var2, 1)) {
         REPORT_ERROR("Failed to allocate var");
         return;
     }
-    if (var_alloc(var3, INT, 1)) {
+    if (var_alloc(var3, 1)) {
         REPORT_ERROR("Failed to allocate var");
         return;
     }
@@ -124,6 +143,210 @@ static void test(void)
     program[10] = END;
 }
 
+static int program_resize(void)
+{
+    program_length = (program_length * 2) + 1; // ensures the size cannot be 0
+    int* new_program = realloc(program, program_length);
+    if (new_program == NULL) return 1;
+    program = new_program;
+
+    return 0;
+}
+
+static int program_execute(int* prog, size_t size)
+{
+    for (int i = 0; (size_t)i < size; ++i) {
+        printf("PROGRAM > %d\n", i);
+        switch (prog[i]) {
+        case ALO: // index, size
+            if (var_alloc(prog[i + 1], (size_t)prog[i + 2])) {
+                REPORT_ERROR("Error alocating var");
+                return 1;
+            }
+        continue;
+        case EXE: // index
+            if (program_execute(
+                var_get_data(prog[i + 1]),
+                var_get_length(prog[i + 1]))
+            ) return 1;
+        continue;
+        case PRI: // index
+            printf("> %d\n", var_get(prog[i + 1]));
+        continue;
+        case PRC: // index
+            printf("> %c\n", (char)var_get(prog[i + 1]));
+        continue;
+        case PRS: // index
+            for (size_t j = 0; j < var_get_length(prog[i + 1]); ++j)
+                printf("> %c", (char)var_get_at(prog[i + 1], j));
+            printf("\n");
+        continue;
+        case JMP: // goto [i + 1]
+            JUMP(prog[i + 1]);
+        continue;
+        case JIF: // if [i + 1] != 0 {goto [i + 2]} else {goto i + 3}
+            if (var_get(prog[i + 1])) {
+                JUMP(prog[i + 2]);
+            } else {
+                JUMP(i + 3);
+            }
+        continue;
+        case JNO: // if [i + 1] != 0 {goto i + 3} else {goto [i + 2]}
+            if (var_get(prog[i + 1])) {
+                JUMP(i + 3);
+            } else {
+                JUMP(prog[i + 2]);
+            }
+        continue;
+        case JEQ:
+            if (var_get(prog[i + 1]) == var_get(prog[i + 2])) {
+                JUMP(prog[i + 3]);
+            } else {
+                JUMP(i + 4);
+            }
+        continue;
+        case JNE:
+            if (var_get(prog[i + 1]) != var_get(prog[i + 2])) {
+                JUMP(prog[i + 3]);
+            } else {
+                JUMP(i + 4);
+            }
+        continue;
+        case JGT:
+            if (var_get(prog[i + 1]) > var_get(prog[i + 2])) {
+                JUMP(prog[i + 3]);
+            } else {
+                JUMP(i + 4);
+            }
+        continue;
+        case JLT:
+            if (var_get(prog[i + 1]) < var_get(prog[i + 2])) {
+                JUMP(prog[i + 3]);
+            } else {
+                JUMP(i + 4);
+            }
+        continue;
+        case JGE:
+            if (var_get(prog[i + 1]) >= var_get(prog[i + 2])) {
+                JUMP(prog[i + 3]);
+            } else {
+                JUMP(i + 4);
+            }
+        continue;
+        case JLE:
+            if (var_get(prog[i + 1]) <= var_get(prog[i + 2])) {
+                JUMP(prog[i + 3]);
+            } else {
+                JUMP(i + 4);
+            }
+        continue;
+        case MOV:
+            var_set(prog[i + 1], var_get(prog[i + 2]));
+            JUMP(i + 3);
+        continue;
+        case ADD:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) + var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case SUB:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) - var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case MUL:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) * var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case DIV:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) / var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case MOD:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) % var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case CMP:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) == var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case MOR:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) > var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case LES:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) < var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case GTE:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) >= var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case LTE:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) <= var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case AND:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) && var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case ORR:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) || var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case NOT:
+            var_set(prog[i + 1], !var_get(prog[i + 2]));
+            JUMP(i + 3);
+        continue;
+        case BAN:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) & var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case BOR:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) | var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case BXO:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) ^ var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case BNO:
+            var_set(prog[i + 1], ~var_get(prog[i + 2]));
+            JUMP(i + 3);
+        continue;
+        case LSH:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) << var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+        case RSH:
+            var_set(prog[i + 1],
+            var_get(prog[i + 2]) >> var_get(prog[i + 3]));
+            JUMP(i + 4);
+        continue;
+
+        case END: printf("PROGRAM > END\n");           return 0;
+        default:  REPORT_ERROR("Invalid instruction"); return 1;
+        }
+    }
+
+    REPORT_ERROR("No END instruction");
+    return 1;
+}
+
 int program_start(void)
 {
     program = malloc(PROG_START_LENGTH * (sizeof *program));
@@ -143,145 +366,7 @@ int program_start(void)
 
 int program_run(void)
 {
-    for (int i = 0; (size_t)i < program_length; ++i) {
-        printf("PROGRAM > %d\n", i);
-        switch (program[i]) {
-            case JMP: // goto [i + 1]
-                JUMP(program[i + 1]);
-            continue;
-            case JIF: // if [i + 1] != 0 {goto [i + 2]} else {goto i + 3}
-                if (var_get(program[i + 1])) {
-                    JUMP(program[i + 2]);
-                } else {
-                    JUMP(i + 3);
-                }
-            continue;
-            case JNO: // if [i + 1] != 0 {goto i + 3} else {goto [i + 2]}
-                if (var_get(program[i + 1])) {
-                    JUMP(i + 3);
-                } else {
-                    JUMP(program[i + 2]);
-                }
-            continue;
-            case JEQ:
-                if (var_get(program[i + 1]) == var_get(program[i + 2])) {
-                    JUMP(i + 4);
-                } else {
-                    JUMP(program[i + 3]);
-                }
-            continue;
-            case JNE:
-                if (var_get(program[i + 1]) != var_get(program[i + 2])) {
-                    JUMP(i + 4);
-                } else {
-                    JUMP(program[i + 3]);
-                }
-            continue;
-            case SET:
-                var_set(program[i + 1], var_get(program[i + 2]));
-                JUMP(i + 3);
-            continue;
-            case ADD:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) + var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case SUB:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) - var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case MUL:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) * var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case DIV:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) / var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case MOD:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) % var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case CMP:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) == var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case MOR:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) > var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case LES:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) < var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case GTE:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) >= var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case LTE:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) <= var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case AND:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) && var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case ORR:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) || var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case NOT:
-                var_set(program[i + 1], !var_get(program[i + 2]));
-                JUMP(i + 3);
-            continue;
-            case BAN:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) & var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case BOR:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) | var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case BXO:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) ^ var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case BNO:
-                var_set(program[i + 1], ~var_get(program[i + 2]));
-                JUMP(i + 3);
-            continue;
-            case LSH:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) << var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-            case RSH:
-                var_set(program[i + 1],
-                var_get(program[i + 2]) >> var_get(program[i + 3]));
-                JUMP(i + 4);
-            continue;
-
-            case END: printf("PROGRAM > END\n");           return 0;
-            default:  REPORT_ERROR("Invalid instruction"); return 1;
-        }
-    }
-
-    REPORT_ERROR("No END instruction");
-    return 1;
+    return program_execute(program, program_length);
 }
 
 
