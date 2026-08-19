@@ -12,18 +12,6 @@ typedef enum Instruction {
     JMP,  // goto
     JIF,  // JMP if x != 0
     JNO,  // JMP if x == 0
-    JEQ,  // JMP if ==
-    JNE,  // JMP if !=
-
-    /*********** Remove? ***********/
-    JGT,  // JMP if >
-    JLT,  // JMP if <
-    JGE,  // JMP if >=
-    JLE,  // JMP if <=
-    JAN,  // JMP if &&
-    JOR,  // JMP if ||
-    /*********** Remove? ***********/
-
     MOV,  // =
     ADD,  // +
     SUB,  // -
@@ -57,3 +45,6 @@ int program_run(void);
 void program_end(void);
 
 #endif
+
+
+

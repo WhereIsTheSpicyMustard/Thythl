@@ -144,55 +144,6 @@ static int program_execute(int* prog, size_t size)
                 JUMP(i + 3);
             }
         continue;
-        case JNO: // if [i + 1] != 0 {goto i + 3} else {goto [i + 2]}
-            if (var_get(prog[i + 1])) {
-                JUMP(i + 3);
-            } else {
-                JUMP(prog[i + 2]);
-            }
-        continue;
-        case JEQ:
-            if (var_get(prog[i + 1]) == var_get(prog[i + 2])) {
-                JUMP(prog[i + 3]);
-            } else {
-                JUMP(i + 4);
-            }
-        continue;
-        case JNE:
-            if (var_get(prog[i + 1]) != var_get(prog[i + 2])) {
-                JUMP(prog[i + 3]);
-            } else {
-                JUMP(i + 4);
-            }
-        continue;
-        case JGT:
-            if (var_get(prog[i + 1]) > var_get(prog[i + 2])) {
-                JUMP(prog[i + 3]);
-            } else {
-                JUMP(i + 4);
-            }
-        continue;
-        case JLT:
-            if (var_get(prog[i + 1]) < var_get(prog[i + 2])) {
-                JUMP(prog[i + 3]);
-            } else {
-                JUMP(i + 4);
-            }
-        continue;
-        case JGE:
-            if (var_get(prog[i + 1]) >= var_get(prog[i + 2])) {
-                JUMP(prog[i + 3]);
-            } else {
-                JUMP(i + 4);
-            }
-        continue;
-        case JLE:
-            if (var_get(prog[i + 1]) <= var_get(prog[i + 2])) {
-                JUMP(prog[i + 3]);
-            } else {
-                JUMP(i + 4);
-            }
-        continue;
         case MOV:
             var_set(prog[i + 1], var_get(prog[i + 2]));
             JUMP(i + 3);

@@ -11,33 +11,44 @@
 
 #define CHAR_DIFF 32
 #define MAX_TOK_LEN 10
+#define HASH_SIZE 128
 
-static const int hash_table[256] = {
-    [113] =  0, [170] =  1, [ 49] =  2, [ 55] =  3,
-    [ 39] =  4, [229] =  5, [231] =  6, [101] =  7,
-    [243] =  8, [107] =  9, [106] = 10, [250] = 11,
-    [249] = 12, [105] = 13, [ 80] = 14, [225] = 15,
-    [237] = 16, [119] = 17, [181] = 18, [233] = 19,
-    [124] = 20, [255] = 21, [ 10] = 22, [241] = 23,
-    [182] = 24, [248] = 25, [202] = 26, [254] = 27,
-    [172] = 28, [203] = 29, [191] = 30, [ 30] = 31,
-    [132] = 32, [154] = 33, [ 76] = 34, [ 34] = 35,
-    [ 53] = 36
+// hash of token -> enum value
+static const int hash_table[HASH_SIZE] = {
+    [  0] = 17, [  2] = 2,  [  8] = 14, [ 10] = 24, [ 19] = 16,
+    [ 20] = 6,  [ 23] = 12, [ 31] = 13, [ 38] = 11, [ 39] = 27,
+    [ 44] = 26, [ 46] = 7,  [ 47] = 1,  [ 49] = 20, [ 50] = 25,
+    [ 57] = 18, [ 60] = 15, [ 65] = 10, [ 66] = 5,  [ 68] = 19,
+    [ 70] = 28, [ 92] = 21, [ 97] = 4,  [ 99] = 3,  [108] = 9,
+    [118] = 22, [122] = 0,  [124] = 8,  [125] = 23,
 };
 
-static const char* token_table[256] = {
-    [113] = "ALO", [170] = "EXE", [ 49] = "PRI", [ 55] = "PRC",
-    [ 39] = "PRS", [229] = "JMP", [231] = "JIF", [101] = "JNO",
-    [243] = "JEQ", [107] = "JNE", [106] = "JGT", [250] = "JLT",
-    [249] = "JGE", [105] = "JLE", [ 80] = "JAN", [225] = "JOR",
-    [237] = "MOV", [119] = "ADD", [181] = "SUB", [233] = "MUL",
-    [124] = "DIV", [255] = "MOD", [ 10] = "CMP", [241] = "MOR",
-    [182] = "LES", [248] = "GTE", [202] = "LTE", [254] = "AND",
-    [172] = "ORR", [203] = "NOT", [191] = "BAN", [ 30] = "BOR",
-    [132] = "BXO", [154] = "BNO", [ 76] = "LSH", [ 34] = "RSH",
-    [ 53] = "END",
+// hash of token -> token string
+static const char* const token_table[HASH_SIZE] = {
+    [  0] = "GTE", [  2] = "PRI", [  8] = "CMP", [ 10] = "BXO",
+    [ 19] = "LES", [ 20] = "JIF", [ 23] = "DIV", [ 31] = "MOD",
+    [ 38] = "MUL", [ 39] = "RSH", [ 44] = "LSH", [ 46] = "JNO",
+    [ 47] = "EXE", [ 49] = "ORR", [ 50] = "BNO", [ 57] = "LTE",
+    [ 60] = "MOR", [ 65] = "SUB", [ 66] = "JMP", [ 68] = "AND",
+    [ 70] = "END", [ 92] = "NOT", [ 97] = "PRS", [ 99] = "PRC",
+    [108] = "ADD", [118] = "BAN", [122] = "ALO", [124] = "MOV",
+    [125] = "BOR",
 };
 
+// token string -> hash of token
+static int hash_function(const char key[3])
+{
+    const uint64_t a = (uint8_t)key[0];
+    const uint64_t b = (uint8_t)key[1];
+    const uint64_t c = (uint8_t)key[2];
+
+    uint64_t hash = (0xca4b195ebe20bb27UL +
+    ((a << 13) +    0xc85fd24c21bf27d9UL)) ^
+    ((b << 23) +    0xb8016a2e00bed809UL) ^
+    ((c << 25) +    0xc2a16d719235e88fUL);
+
+    return (int)(hash % 127);
+}
 
 static inline int is_tok_char(const char c)
 {
@@ -68,9 +79,23 @@ static int parse_int(const char* string, const size_t length)
     return val;
 }
 
-static int parse_instruction(const char* string, const size_t length)
+// compares 3 char string
+static int str_is_equal(const char* const a, const char* const b)
 {
-    return 0;
+    for (int i = 0; i < 3; ++i) {
+        if (a[i] != b[i]) return 0;
+    }
+    return 1;
+}
+
+static int parse_instruction(const char* const token)
+{
+    const int hash = hash_function(token);
+    if (!str_is_equal(token_table[hash], token)) {
+        REPORT_ERROR("Invalid token");
+        return -1;
+    }
+    return hash_table[hash];
 }
 
 int* parse_file(const char* filename, size_t* size)
@@ -117,15 +142,35 @@ int* parse_file(const char* filename, size_t* size)
 
         if (tok_len == 0) continue;
 
+
+        // ==========================
+        // TEST =====================
+        char ptoken[MAX_TOK_LEN + 1];
+        for (size_t j = 0; j < tok_len; ++j) {
+            ptoken[j] = token[j];
+        }
+        ptoken[tok_len] = '\0';
+        printf("%s\n", ptoken);
+        // TEST =====================
+        // ==========================
+
+
+
         const int value = parse_int(token, tok_len);
         if (parsed_count >= tok_count) {
             REPORT_ERROR("Out of bounds");
             goto cleanup;
         }
         if (value < 0) { // not an integer
-            parsed[parsed_count++] = value;
+            if (tok_len != 3) {
+                REPORT_ERROR("Invalid token");
+                goto cleanup;
+            }
+            parsed[parsed_count] = parse_instruction(token);
+            if (parsed[parsed_count] < 0) goto cleanup;
+            ++parsed_count;
         } else {
-            parsed[parsed_count++] = parse_instruction(token, tok_len);
+            parsed[parsed_count++] = value;
         }
 
         tok_len = 0;
