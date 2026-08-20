@@ -70,15 +70,14 @@ static int parse_int(const char* const string, const size_t length)
 {
     uint64_t val = 0;
     for (size_t i = 0; i < length; ++i) {
-        if (string[i] >= '0' && string[i] <= '9') {
-            val = val * 10 + (uint64_t)(string[i] - '0');
-            if (val > INT32_MAX) {
-                REPORT_ERROR("Integer overflow");
-                return -1;
-            }
-            continue;
+        if (string[i] < '0' || string[i] > '9') return -1;
+
+        val = val * 10 + (uint64_t)(string[i] - '0');
+        if (val > INT32_MAX) {
+            REPORT_ERROR("Integer overflow");
+            return -1;
         }
-        return -1;
+        continue;
     }
 
     return (int)val;
@@ -104,12 +103,28 @@ static int parse_instruction(char* token)
     return hash_table[hash];
 }
 
+static int line_to_token(const uint8_t* const file, const size_t size, const int line_index)
+{
+    int tok_count = 0;
+    int line_count = 0;
+    for (size_t i = 0; i < size; ++i) {
+        if (!is_tok_char((char)file[i]) && is_tok_char((char)file[i - 1]))
+            ++tok_count;
+        if ((char)file[i] == '\n')
+            ++line_count;
+        if (line_count + 1 == line_index)
+            return tok_count;
+    }
+    return -1;
+}
+
 int* parse_file(const char* filename, size_t* size)
 {
     uint8_t* file = load_file(filename, size);
     size_t tok_count = 0;
     int* parsed = NULL;
     size_t parsed_count = 0;
+    int* instruction_table = NULL;
 
     /**********************************************/
     // get tok count
@@ -130,8 +145,20 @@ int* parse_file(const char* filename, size_t* size)
         goto cleanup;
     }
 
+
     /**********************************************/
     // parse tokens
+    instruction_table = calloc(tok_count, sizeof(*instruction_table));
+    if (instruction_table == NULL) {
+        REPORT_ERROR("Failed allocation");
+        goto cleanup;
+    }
+    size_t instruction_table_index = 0;
+
+    for (size_t i = 0; i < tok_count; ++i) {
+        instruction_table[i] = -1;
+    }
+
     char token[MAX_TOK_LEN];
     size_t tok_len = 0;
 
@@ -164,6 +191,7 @@ int* parse_file(const char* filename, size_t* size)
             }
             parsed[parsed_count] = parse_instruction(token);
             if (parsed[parsed_count] < 0) goto cleanup;
+            instruction_table[instruction_table_index++] = (int)parsed_count;
             ++parsed_count;
         } else {
             parsed[parsed_count++] = value;
@@ -173,11 +201,53 @@ int* parse_file(const char* filename, size_t* size)
     }
     /**********************************************/
 
-    *size = tok_count;
+
+    // for (size_t i = 0; i < parsed_count; ++i) {
+    //     printf("%d\n", parsed[i]);
+    // }
+
+
+    /**********************************************/
+    // replace jmp instruction args
+    for (size_t i = 0; i < parsed_count; ++i) {
+        const int index = instruction_table[i];
+        if (index < 0) break;
+        switch (parsed[index]) {
+            case 6:
+                parsed[index + 1] = line_to_token(file, *size, parsed[index + 1]);
+                if (parsed[index + 1] < 0) {
+                    REPORT_ERROR("Error on replace jmp");
+                    goto cleanup;
+                }
+            continue;
+            case 7:
+                parsed[index + 2] = line_to_token(file, *size, parsed[index + 2]);
+                if (parsed[index + 2] < 0) {
+                    REPORT_ERROR("Error on replace jmp");
+                    goto cleanup;
+                }
+            continue;
+            case 8:
+                parsed[index + 2] = line_to_token(file, *size, parsed[index + 2]);
+                if (parsed[index + 2] < 0) {
+                    REPORT_ERROR("Error on replace jmp");
+                    goto cleanup;
+                }
+            continue;
+            default: continue;
+        }
+    }
+    /**********************************************/
+
+    if (parsed_count != tok_count)
+        REPORT_ERROR("Parsing Failed");
+    *size = parsed_count;
     free(file);
+    free(instruction_table);
     return parsed;
 cleanup:
     free(file);
     free(parsed);
+    free(instruction_table);
     return NULL;
 }

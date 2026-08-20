@@ -166,6 +166,13 @@ static int program_execute(int* prog, size_t size)
                 JUMP(i + 3);
             }
         continue;
+        case JNO: // if [i + 1] == 0 {goto [i + 2]} else {goto i + 3}
+            if (var_get(prog[i + 1])) {
+                JUMP(i + 3);
+            } else {
+                JUMP(prog[i + 2]);
+            }
+            continue;
         case SET:
             var_set(prog[i + 1], prog[i + 2]);
             JUMP(i + 3);
